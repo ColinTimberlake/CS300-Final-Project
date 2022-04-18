@@ -1,0 +1,318 @@
+/*
+Colin Timberlake
+Final Project
+CS300
+*/
+
+#include <algorithm>
+#include <iostream>
+#include <fstream>
+#include <time.h>
+#include <climits>
+#include <string>
+#include "CSVparser.hpp"
+
+using namespace std;
+
+double strToDouble(string str, char ch);
+
+//structure to define courses 
+struct Course {
+	string courseNum;
+	string courseName;
+	string preReq1;
+	string preReq2;
+	Course() {
+
+	}
+};
+
+//Class structure to define the Binary Search Tree
+class BinarySearchTree {
+
+private:
+	//Node Structure that will hold the courses
+	struct Node {
+		Course course;
+		Node* root;
+		Node* right;
+		Node* left;
+		Node() {
+			root = nullptr;
+			right = nullptr;
+			left = nullptr;
+		}
+
+		Node(Course acourse) : Node() {
+			course = acourse;
+		}
+	};
+	// Root declaration
+	Node* root;
+
+
+public:
+	//List of all public functions. Used through the program and accessbile by main class
+	BinarySearchTree();
+	virtual ~BinarySearchTree();
+	void deleteTree(Node* root);
+	void courseInsert(Course course);
+	void InOrder();
+	void InOrder(Node* node);
+	Course courseSearch(string courseNum);
+	void addNode(Node* node, Course course);
+};
+
+void BinarySearchTree::deleteTree(Node* root) {
+	//Deletes the tree. A helper for the deconstructor
+	if (root != nullptr) {
+		deleteTree(root->left);
+		deleteTree(root->right);
+		delete root;
+	}
+}
+
+//Constructor
+BinarySearchTree::BinarySearchTree() {
+	root = nullptr;
+}
+
+//Deconstructor
+BinarySearchTree::~BinarySearchTree() {
+	deleteTree(root);
+}
+
+
+/*
+Two different print structures.
+One was created so that it could display the information as it was called by the search function and
+then print2 was made so that we could print the entire  schedule at once without prereqs
+*/
+void printCourse(Course course) {
+	cout << course.courseNum << " " << course.courseName << endl;
+	if ((!course.preReq1.empty()) || (!course.preReq2.empty())) {
+		cout << "Prerequisuites: " << course.preReq1 << " " << course.preReq2 << endl;
+	}
+}
+
+void printCourse2(Course course) {
+	cout << course.courseNum << " " << course.courseName << endl;
+	
+}
+
+
+//Used to build the tree. it will insert the first node and then pass the rest to the addNode function
+void BinarySearchTree::courseInsert(Course course) {
+	
+	Node* newNode = new Node(course);
+
+	if (root == nullptr) {
+		root = newNode;
+		return;
+	}
+
+	if (root->course.courseNum > course.courseNum) { 
+		if (root->left != nullptr) { 
+			addNode(root->left, course); 
+			return;
+		}
+		root->left = newNode; 
+		return;
+	}
+	if (root->right != nullptr) { 
+		addNode(root->right, course); 
+		return;
+	}
+	root->right = newNode; 
+	return;
+}
+
+//addNode function that will help the insertCourse function to build the BST
+void BinarySearchTree::addNode(Node* node, Course course) { 
+	
+
+	Node* newNode = new Node(course); 
+
+	if (node->course.courseNum > course.courseNum) { 
+
+		if (node->left == nullptr) { 
+			node->left = newNode; 
+		}
+		else {
+			addNode(node->left, course); 
+
+		}
+	}
+	else { 
+		if (node->right == nullptr) { 
+			node->right = newNode; 
+		}
+		else {
+			addNode(node->right, course); 
+
+		}
+	}
+}
+
+
+/*
+Inorder functions so that the traversal of the tree could take place and we could move from one end of the tree to the other.
+FIrst steps to display the schedule. Main would call this function and then the root of the BST would pass to the secondary function
+*/
+void BinarySearchTree::InOrder() {
+	InOrder(root);
+}
+
+/*
+When the root was passed here this would use recursion to recursively move down the tree and find the leftmost point.
+Next when it got there it would start printing the node and then move right and print the next node until
+it had made it's way across the entire tree
+*/
+void BinarySearchTree::InOrder(Node* node) {
+	if (node != nullptr) {
+		InOrder(node->left);
+		printCourse2(node->course);
+		InOrder(node->right);
+	}
+}
+
+/*
+This function helps to find the specific course and then prints the course information.
+it looks for the key and when found it will return it to our main program class.
+I also included for the case of if it didn't find one that it would return an empty course
+*/
+Course BinarySearchTree::courseSearch(string courseNum) {
+	Node* node = root; 
+	Course* emptyCourse = new Course(); 
+
+	while (true) { 
+
+		if (node == nullptr) { 
+			return *emptyCourse;
+		}
+		if (node->course.courseNum == courseNum) {
+			return node->course;
+			
+		}
+
+		if (node->course.courseNum < courseNum) { 
+			
+			node = node->right; 
+			continue;
+		}
+
+		if (node->course.courseNum > courseNum) { 
+			
+			node = node->left; 
+			continue;
+		}
+	}
+}
+
+/*
+structure for taking the csv file that was used and opening it and take the different pieces and putting them in the tree.
+*/
+void loadCourses(string csvPath, BinarySearchTree* bst) {
+	cout << "Loading CSV file " << csvPath << endl;
+
+	
+	csv::Parser file = csv::Parser(csvPath);
+
+	
+	vector<string> header = file.getHeader();
+	for (auto const& c : header) {
+		cout << c << " | ";
+	}
+	cout << "" << endl;
+
+	try {
+		
+		for (unsigned int i = 0; i < file.rowCount(); i++) {
+
+			
+			Course course;
+			course.courseName = file[i][1];
+			course.courseNum = file[i][0];
+			course.preReq1 = file[i][2];
+			course.preReq2 = file[i][3];
+
+			bst->courseInsert(course);
+		}
+	}
+	catch (csv::Error& e) {
+		std::cerr << e.what() << std::endl;
+	}
+}
+
+double strToDouble(string str, char ch) {
+	str.erase(remove(str.begin(), str.end(), ch), str.end());
+	return atof(str.c_str());
+}
+
+void main() {
+	ifstream inFS;
+	string csvPath;
+	string courseNum;
+
+	//creation of the new BST
+	BinarySearchTree* bst= new BinarySearchTree();
+	Course course;
+
+	//Code for the main menu
+	int choice = 0;
+	while (choice != 9) {
+		cout << "Welcome to the Course Planner" << endl;
+		cout << "1. Load Data Structure" << endl;
+		cout << "2. Print Course List" << endl;
+		cout << "3. Print Course" << endl;
+		cout << "9. Exit" << endl;
+		cin >> choice;
+
+		//When option 1 is selected. Builds the tree
+		if (choice == 1) {
+			cout << "Enter name of file you wish to import" << endl;
+			cin >> csvPath;
+			inFS.open(csvPath);
+			if (!inFS.is_open()) {
+				cout << "File did not open. ERROR!!!!" << endl;
+			}
+
+			cout << "Courses are loading now." << endl;
+			loadCourses(csvPath, bst);
+
+		}
+
+		//When Option 2 is selected . Prints the treee
+		else if (choice == 2) {
+			cout << "Here is a sample schedule" <<endl;
+			bst->InOrder();
+
+		}
+
+		//When Option 3 is selected. Searches the tree and prints the course
+		else if (choice == 3) {
+			cout << "What course would you like to know about?" << endl;
+			cin >> courseNum;
+			course= bst-> courseSearch(courseNum);
+			if (!course.courseNum.empty()) {
+				printCourse(course);
+			}
+			else {
+				cout << "Course Not Found. Please try again" << endl;
+			}
+
+		}
+
+		//The call to exit the loop and terminates the program
+		else if (choice == 9) {
+			cout << "Thank you for using the course planner" << endl;
+			break;
+		}
+
+		// the failsafe in case a wrong number is selected so that the program doesn't just stop working
+		else {
+			cout << choice << " is not a valid choice. Please try again" << endl;
+		}
+
+	}
+}
